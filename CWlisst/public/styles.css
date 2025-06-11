@@ -1,0 +1,52 @@
+/* Custom styles for Content Lens Manager */
+body {
+    margin: 0;
+    padding: 0;
+    background-color: #f4f6f9;
+}
+
+/* Ensure proper display in iframes */
+.slds-scope {
+    min-height: 100vh;
+    background-color: white;
+}
+
+/* Fix for Salesforce iframe context */
+html, body {
+    height: 100%;
+    overflow: auto;
+}
+
+/* Spinner animation */
+@keyframes spinner-rotate {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.slds-spinner {
+    animation: spinner-rotate 1s linear infinite;
+}
+
+/* Custom badge styles */
+.slds-badge {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .slds-page-header__title {
+        font-size: 1.25rem;
+    }
+    
+    .slds-table {
+        font-size: 0.875rem;
+    }
+    
+    .slds-hide-mobile {
+        display: none !important;
+    }
+}

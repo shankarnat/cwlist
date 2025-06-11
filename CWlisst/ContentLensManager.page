@@ -1,0 +1,185 @@
+<apex:page showHeader="false" standardStylesheets="false" sidebar="false" applyHtmlTag="false" applyBodyTag="false" docType="html-5.0" controller="ContentLensController">
+    <html xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <head>
+        <apex:slds />
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Content Lens Manager</title>
+        <style>
+            /* Ensure proper display in Salesforce tabs */
+            .slds-scope {
+                min-height: 100vh;
+            }
+            /* Fix for Salesforce iframe context */
+            body {
+                margin: 0;
+                padding: 0;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="slds-scope">
+            <div class="slds-page-header">
+                <div class="slds-page-header__row">
+                    <div class="slds-page-header__col-title">
+                        <div class="slds-media">
+                            <div class="slds-media__figure">
+                                <span class="slds-icon_container slds-icon-standard-account" style="background-color: #ff9a3c;">
+                                    <span class="slds-icon slds-page-header__icon" style="font-size: 1.5rem; color: white; font-weight: bold;">L</span>
+                                </span>
+                            </div>
+                            <div class="slds-media__body">
+                                <div class="slds-page-header__name">
+                                    <div class="slds-page-header__name-title">
+                                        <h1>
+                                            <span class="slds-page-header__title slds-truncate">My Content Lenses</span>
+                                        </h1>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="slds-m-around_medium">
+                <div class="slds-grid slds-gutters slds-m-bottom_small">
+                    <div class="slds-col slds-size_1-of-2">
+                        <div class="slds-form-element">
+                            <div class="slds-form-element__control slds-input-has-icon slds-input-has-icon_left">
+                                <svg class="slds-icon slds-input__icon slds-input__icon_left slds-icon-text-default" aria-hidden="true">
+                                    <use xlink:href="{!URLFOR($Asset.SLDS, 'assets/icons/utility-sprite/svg/symbols.svg#search')}"></use>
+                                </svg>
+                                <input type="text" id="searchInput" class="slds-input" placeholder="Search lenses..." />
+                            </div>
+                        </div>
+                    </div>
+                    <div class="slds-col slds-size_1-of-2 slds-text-align_right">
+                        <button class="slds-button slds-button_brand" onclick="showNewModal()">New</button>
+                        <button class="slds-button slds-button_neutral" id="cloneBtn" onclick="cloneLenses()" disabled="true">Clone</button>
+                        <button class="slds-button slds-button_neutral" onclick="refreshLenses()">
+                            Refresh
+                            <span id="pendingBadge" class="slds-badge slds-m-left_x-small" style="display:none; background-color: #ff9a3c;">0</span>
+                        </button>
+                    </div>
+                </div>
+                
+                <table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_striped">
+                    <thead>
+                        <tr class="slds-line-height_reset">
+                            <th scope="col" style="width: 50px;">
+                                <div class="slds-checkbox">
+                                    <input type="checkbox" id="selectAll" onchange="toggleSelectAll()" />
+                                    <label class="slds-checkbox__label" for="selectAll">
+                                        <span class="slds-checkbox_faux"></span>
+                                    </label>
+                                </div>
+                            </th>
+                            <th scope="col" style="width: 60px;">
+                                <div class="slds-truncate" title="#">#</div>
+                            </th>
+                            <th scope="col" style="width: 120px;">
+                                <div class="slds-truncate" title="Lens #">Lens #</div>
+                            </th>
+                            <th scope="col">
+                                <div class="slds-truncate" title="Lens Name">Lens Name</div>
+                            </th>
+                            <th scope="col" style="width: 120px;">
+                                <div class="slds-truncate" title="Status">Status</div>
+                            </th>
+                            <th scope="col" style="width: 200px;">
+                                <div class="slds-truncate" title="Last Refreshed">Last Refreshed</div>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                    </tbody>
+                </table>
+                
+                <div id="noData" class="slds-text-align_center slds-m-around_large" style="display:none;">
+                    <p class="slds-text-color_weak">No lenses found. Click "New" to create your first lens.</p>
+                </div>
+            </div>
+            
+            <!-- New Lens Modal -->
+            <section id="newModal" role="dialog" tabindex="-1" class="slds-modal" aria-modal="true">
+                <div class="slds-modal__container">
+                    <header class="slds-modal__header">
+                        <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse" onclick="hideNewModal()">
+                            <svg class="slds-button__icon slds-button__icon_large">
+                                <use xlink:href="{!URLFOR($Asset.SLDS, 'assets/icons/utility-sprite/svg/symbols.svg#close')}"></use>
+                            </svg>
+                        </button>
+                        <h2 class="slds-modal__title">New Content Lens</h2>
+                    </header>
+                    <div class="slds-modal__content">
+                        <div class="slds-form-element slds-m-bottom_medium">
+                            <label class="slds-form-element__label" for="lensName">
+                                <abbr class="slds-required" title="required">*</abbr>Lens Name
+                            </label>
+                            <div class="slds-form-element__control">
+                                <input type="text" id="lensName" class="slds-input" />
+                            </div>
+                            <div id="nameError" class="slds-form-element__help slds-hide">Please enter a lens name</div>
+                        </div>
+                        <div class="slds-form-element slds-m-bottom_medium">
+                            <label class="slds-form-element__label" for="lensDesc">Description</label>
+                            <div class="slds-form-element__control">
+                                <textarea id="lensDesc" class="slds-textarea"></textarea>
+                            </div>
+                        </div>
+                        <div class="slds-form-element">
+                            <label class="slds-form-element__label" for="lensStatus">Status</label>
+                            <div class="slds-form-element__control">
+                                <select id="lensStatus" class="slds-select">
+                                    <option value="Draft">Draft</option>
+                                    <option value="Published">Published</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <footer class="slds-modal__footer">
+                        <button class="slds-button slds-button_neutral" onclick="hideNewModal()">Cancel</button>
+                        <button class="slds-button slds-button_brand" onclick="saveLens()">Save</button>
+                    </footer>
+                </div>
+            </section>
+            <div id="newBackdrop" class="slds-backdrop"></div>
+            
+            <!-- Loading Modal -->
+            <section id="loadingModal" role="dialog" tabindex="-1" class="slds-modal" aria-modal="true">
+                <div class="slds-modal__container">
+                    <div class="slds-modal__content slds-p-around_medium slds-text-align_center">
+                        <h3 class="slds-text-heading_medium slds-m-bottom_medium">Opening in Content Lens</h3>
+                        <div class="slds-spinner_container">
+                            <div role="status" class="slds-spinner slds-spinner_medium slds-spinner_brand">
+                                <span class="slds-assistive-text">Loading</span>
+                                <div class="slds-spinner__dot-a"></div>
+                                <div class="slds-spinner__dot-b"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            <div id="loadingBackdrop" class="slds-backdrop"></div>
+        </div>
+        
+        <apex:includeScript value="{!$Resource.ContentLensJS}"/>
+        <script>
+            // Initialize on Visualforce ready
+            (function() {
+                if (typeof Visualforce !== 'undefined') {
+                    Visualforce.remoting.timeout = 120000; // 2 min timeout
+                }
+                
+                // Wait for DOM ready
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', init);
+                } else {
+                    init();
+                }
+            })();
+        </script>
+    </body>
+    </html>
+</apex:page>
