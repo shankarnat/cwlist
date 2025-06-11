@@ -39,6 +39,16 @@ async function init() {
     
     document.getElementById('searchInput').addEventListener('input', renderTable);
     
+    // Add event listener to New button as backup
+    const newButton = document.getElementById('newButton');
+    if (newButton) {
+        newButton.addEventListener('click', function(e) {
+            e.preventDefault();
+            console.log('New button clicked via event listener');
+            showNewModal();
+        });
+    }
+    
     // Check if we're in an iframe and send ready message
     if (window.parent !== window) {
         window.parent.postMessage({ type: 'contentLensReady' }, '*');
@@ -213,7 +223,28 @@ function updateCloneButton() {
 
 // Show new lens modal
 function showNewModal() {
-    document.getElementById('newModal').style.display = 'block';
+    console.log('showNewModal function called');
+    const modal = document.getElementById('newModal');
+    console.log('Modal element:', modal);
+    
+    if (modal) {
+        console.log('Setting modal display to block');
+        modal.style.display = 'block';
+        
+        // Also ensure the modal is visible by removing any conflicting styles
+        modal.style.visibility = 'visible';
+        modal.style.opacity = '1';
+        
+        // Focus on the first input field
+        setTimeout(() => {
+            const nameInput = document.getElementById('lensName');
+            if (nameInput) {
+                nameInput.focus();
+            }
+        }, 100);
+    } else {
+        console.error('Modal element with id "newModal" not found');
+    }
 }
 
 // Hide new lens modal
@@ -410,6 +441,16 @@ window.addEventListener('message', (event) => {
         loadLenses();
     }
 });
+
+// Make functions globally available for onclick handlers
+window.showNewModal = showNewModal;
+window.hideNewModal = hideNewModal;
+window.saveLens = saveLens;
+window.toggleSelectAll = toggleSelectAll;
+window.toggleSelect = toggleSelect;
+window.cloneLenses = cloneLenses;
+window.refreshLenses = refreshLenses;
+window.openLens = openLens;
 
 // Initialize when DOM is ready
 if (document.readyState === 'loading') {
