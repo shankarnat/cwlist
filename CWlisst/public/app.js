@@ -49,6 +49,16 @@ async function init() {
         });
     }
     
+    // Add event listener to Save button as backup
+    const saveButton = document.getElementById('saveButton');
+    if (saveButton) {
+        saveButton.addEventListener('click', function(e) {
+            e.preventDefault();
+            console.log('Save button clicked via event listener');
+            saveLens();
+        });
+    }
+    
     // Add ESC key listener for modal
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
@@ -58,6 +68,10 @@ async function init() {
             }
         }
     });
+    
+    // Check if floating actions element exists
+    const floatingActions = document.getElementById('floatingActions');
+    console.log('Floating actions element found:', !!floatingActions);
     
     // Check if we're in an iframe and send ready message
     if (window.parent !== window) {
@@ -186,11 +200,15 @@ function toggleSelectAll() {
 
 // Toggle individual selection
 function toggleSelect(id) {
+    console.log('toggleSelect called with id:', id);
     if (selectedIds[id]) {
         delete selectedIds[id];
+        console.log('Deselected:', id);
     } else {
         selectedIds[id] = true;
+        console.log('Selected:', id);
     }
+    console.log('Current selectedIds:', selectedIds);
     updateCloneButton();
     updateSelectAllCheckbox();
 }
@@ -224,11 +242,22 @@ function updateCloneButton() {
     const count = Object.keys(selectedIds).length;
     const floatingActions = document.getElementById('floatingActions');
     
-    if (count > 0) {
-        floatingActions.style.display = 'flex';
-        floatingActions.querySelector('.selected-count').textContent = `${count} selected`;
+    console.log('updateCloneButton called, count:', count, 'selectedIds:', selectedIds);
+    
+    if (floatingActions) {
+        if (count > 0) {
+            floatingActions.style.display = 'flex';
+            const selectedCountSpan = floatingActions.querySelector('.selected-count');
+            if (selectedCountSpan) {
+                selectedCountSpan.textContent = `${count} selected`;
+            }
+            console.log('Showing floating actions');
+        } else {
+            floatingActions.style.display = 'none';
+            console.log('Hiding floating actions');
+        }
     } else {
-        floatingActions.style.display = 'none';
+        console.error('floatingActions element not found');
     }
 }
 
@@ -247,14 +276,38 @@ function showNewModal() {
         modal.style.opacity = '1';
         
         // Set default modal title and button text for new lens
-        document.querySelector('.modal-header__title').textContent = 'New Content Lens';
-        document.getElementById('saveButton').textContent = 'Save';
+        const modalTitle = document.querySelector('.modal-header__title');
+        const saveButton = document.getElementById('saveButton');
         
-        // Focus on the first input field
+        if (modalTitle) {
+            modalTitle.textContent = 'New Content Lens';
+        } else {
+            console.error('Modal title element not found');
+        }
+        
+        if (saveButton) {
+            saveButton.textContent = 'Save';
+            console.log('Save button found and text set to Save');
+        } else {
+            console.error('Save button element not found');
+        }
+        
+        // Focus on the first input field and verify form elements
         setTimeout(() => {
             const nameInput = document.getElementById('lensName');
+            const descInput = document.getElementById('lensDesc');
+            const statusSelect = document.getElementById('lensStatus');
+            
+            console.log('Form elements check:', {
+                nameInput: !!nameInput,
+                descInput: !!descInput,
+                statusSelect: !!statusSelect
+            });
+            
             if (nameInput) {
                 nameInput.focus();
+            } else {
+                console.error('lensName input not found');
             }
         }, 100);
     } else {
@@ -286,14 +339,37 @@ function generateNextId() {
 
 // Save new lens
 async function saveLens() {
-    const name = document.getElementById('lensName').value.trim();
+    console.log('saveLens function called');
+    
+    const nameElement = document.getElementById('lensName');
+    const descElement = document.getElementById('lensDesc');
+    const statusElement = document.getElementById('lensStatus');
+    
+    console.log('Form elements found:', {
+        name: !!nameElement,
+        desc: !!descElement,
+        status: !!statusElement
+    });
+    
+    if (!nameElement || !descElement || !statusElement) {
+        console.error('One or more form elements not found');
+        showError('Form elements not found. Please try again.');
+        return;
+    }
+    
+    const name = nameElement.value.trim();
+    console.log('Lens name entered:', name);
+    
     if (!name) {
+        console.log('Name validation failed');
         document.getElementById('nameError').style.display = 'block';
         return;
     }
     
-    const description = document.getElementById('lensDesc').value;
-    const userSelectedStatus = document.getElementById('lensStatus').value;
+    const description = descElement.value;
+    const userSelectedStatus = statusElement.value;
+    
+    console.log('Form data:', { name, description, userSelectedStatus });
     
     // Create new lens with sequential ID - always start with Draft
     const newLens = {
@@ -305,8 +381,12 @@ async function saveLens() {
         lastRefreshed: new Date().toLocaleString()
     };
     
+    console.log('New lens created:', newLens);
+    
     // Add directly to main lenses array (immediately visible)
     lenses.push(newLens);
+    console.log('Lens added to array. Total lenses:', lenses.length);
+    
     renderTable();
     updateRecordCount();
     hideNewModal();
