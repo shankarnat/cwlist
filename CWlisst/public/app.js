@@ -352,6 +352,13 @@ function hideNewModal() {
     
     // Update modal title back to default
     document.querySelector('.modal-header__title').textContent = 'New Content Lens';
+    document.getElementById('saveButton').textContent = 'Save';
+    
+    // Clear clone data if it exists
+    if (window.cloneData) {
+        window.cloneData = null;
+        console.log('Clone data cleared');
+    }
 }
 
 // Generate next sequential ID
@@ -361,7 +368,7 @@ function generateNextId() {
     return id;
 }
 
-// Save new lens
+// Save new lens or clone
 async function saveLens() {
     console.log('saveLens function called');
     
@@ -395,6 +402,18 @@ async function saveLens() {
     
     console.log('Form data:', { name, description, userSelectedStatus });
     
+    // Check if this is a clone operation
+    if (window.cloneData) {
+        console.log('Clone operation detected:', window.cloneData);
+        handleCloneOperation(name, description, userSelectedStatus);
+    } else {
+        console.log('New lens operation');
+        handleNewLensOperation(name, description, userSelectedStatus);
+    }
+}
+
+// Handle new lens creation
+function handleNewLensOperation(name, description, userSelectedStatus) {
     // Create new lens with sequential ID - always start with Draft
     const newLens = {
         id: generateNextId(),
@@ -419,7 +438,58 @@ async function saveLens() {
     showSuccessMessage(`"${name}" created with Draft status. Click Refresh to publish it.`);
 }
 
-// Show clone modal for selected lenses
+// Handle clone operation
+function handleCloneOperation(name, description, userSelectedStatus) {
+    const { totalCount, allSelectedIds } = window.cloneData;
+    
+    if (totalCount === 1) {
+        // Single clone with custom name
+        const clonedLens = {
+            id: generateNextId(),
+            name: name,
+            status: 'Draft', // Always start with Draft
+            originalStatus: userSelectedStatus, // Store user's intended status
+            desc: description,
+            lastRefreshed: new Date().toLocaleString()
+        };
+        
+        lenses.push(clonedLens);
+        console.log('Single lens cloned with custom name:', clonedLens);
+        
+        showSuccessMessage(`"${name}" cloned with Draft status. Click Refresh to publish it.`);
+    } else {
+        // Multiple clones - use the entered name as base for all
+        allSelectedIds.forEach((id, index) => {
+            const originalLens = lenses.find(lens => lens.id === id);
+            if (originalLens) {
+                const cloneName = totalCount > 1 ? `${name} ${index + 1}` : name;
+                const clonedLens = {
+                    id: generateNextId(),
+                    name: cloneName,
+                    status: 'Draft', // Always start with Draft
+                    originalStatus: userSelectedStatus, // Store user's intended status
+                    desc: description,
+                    lastRefreshed: new Date().toLocaleString()
+                };
+                
+                lenses.push(clonedLens);
+            }
+        });
+        
+        console.log(`${totalCount} lenses cloned with base name: ${name}`);
+        showSuccessMessage(`${totalCount} lenses cloned with Draft status. Click Refresh to publish them.`);
+    }
+    
+    // Clear clone data and selection
+    window.cloneData = null;
+    selectedIds = {};
+    
+    renderTable();
+    updateRecordCount();
+    hideNewModal();
+}
+
+// Show clone modal for selected lenses (header button version)
 function showCloneModal() {
     const lensIds = Object.keys(selectedIds);
     
@@ -428,43 +498,64 @@ function showCloneModal() {
         return;
     }
     
+    // Always open modal for header clone button, regardless of count
     if (lensIds.length === 1) {
         // Single lens - open modal with prefilled data
         const lensId = lensIds[0];
         const originalLens = lenses.find(lens => lens.id === lensId);
         
         if (originalLens) {
-            // Clear form first
-            document.getElementById('lensName').value = '';
-            document.getElementById('lensDesc').value = '';
-            document.getElementById('lensStatus').value = 'Draft';
-            document.getElementById('nameError').style.display = 'none';
-            
-            // Update modal title and button text
-            document.querySelector('.modal-header__title').textContent = 'Clone Content Lens';
-            document.getElementById('saveButton').textContent = 'Clone';
-            
-            // Show modal first
-            const modal = document.getElementById('newModal');
-            modal.style.display = 'block';
-            modal.style.visibility = 'visible';
-            modal.style.opacity = '1';
-            
-            // Then prefill form with original data
-            setTimeout(() => {
-                document.getElementById('lensName').value = `${originalLens.name} (Copy)`;
-                document.getElementById('lensDesc').value = originalLens.desc;
-                document.getElementById('lensStatus').value = originalLens.status;
-                
-                // Focus on name field for editing
-                document.getElementById('lensName').focus();
-                document.getElementById('lensName').select();
-            }, 100);
+            openCloneModalForLens(originalLens);
         }
     } else {
-        // Multiple lenses - clone directly without modal
-        cloneLensesDirectly();
+        // Multiple lenses - show modal for first lens as template
+        const firstLensId = lensIds[0];
+        const firstLens = lenses.find(lens => lens.id === firstLensId);
+        
+        if (firstLens) {
+            // Update modal title to indicate multiple clones
+            openCloneModalForLens(firstLens, lensIds.length);
+        }
     }
+}
+
+// Open clone modal for a specific lens
+function openCloneModalForLens(originalLens, totalCount = 1) {
+    // Clear form first
+    document.getElementById('lensName').value = '';
+    document.getElementById('lensDesc').value = '';
+    document.getElementById('lensStatus').value = 'Draft';
+    document.getElementById('nameError').style.display = 'none';
+    
+    // Update modal title and button text
+    const modalTitle = totalCount > 1 ? `Clone ${totalCount} Content Lenses` : 'Clone Content Lens';
+    document.querySelector('.modal-header__title').textContent = modalTitle;
+    document.getElementById('saveButton').textContent = 'Clone';
+    
+    // Store the original lens data and count for the save function
+    window.cloneData = {
+        originalLens: originalLens,
+        totalCount: totalCount,
+        allSelectedIds: Object.keys(selectedIds)
+    };
+    
+    // Show modal first
+    const modal = document.getElementById('newModal');
+    modal.style.display = 'block';
+    modal.style.visibility = 'visible';
+    modal.style.opacity = '1';
+    
+    // Then prefill form with original data
+    setTimeout(() => {
+        const baseName = totalCount > 1 ? 'Multiple Lenses' : originalLens.name;
+        document.getElementById('lensName').value = `${baseName} (Copy)`;
+        document.getElementById('lensDesc').value = originalLens.desc;
+        document.getElementById('lensStatus').value = originalLens.status;
+        
+        // Focus on name field for editing
+        document.getElementById('lensName').focus();
+        document.getElementById('lensName').select();
+    }, 100);
 }
 
 // Clone selected lenses directly (for multiple selections)
@@ -574,17 +665,32 @@ function openLens(name) {
     
     const loadingModal = document.getElementById('loadingModal');
     if (loadingModal) {
+        // Ensure modal is fully visible
         loadingModal.style.display = 'block';
+        loadingModal.style.visibility = 'visible';
+        loadingModal.style.opacity = '1';
         
         // Update the loading text to include the lens name
         const spinnerText = loadingModal.querySelector('.spinner-text');
         if (spinnerText) {
-            spinnerText.textContent = `Opening "${name}"...`;
+            spinnerText.textContent = `Loading "${name}"...`;
         }
         
-        console.log('Loading modal displayed');
+        // Update modal title
+        const modalTitle = loadingModal.querySelector('.modal-header__title');
+        if (modalTitle) {
+            modalTitle.textContent = 'Content Lens';
+        }
+        
+        console.log('Loading modal displayed for:', name);
+        
+        // Add visual feedback to confirm modal is showing
+        console.log('Modal display style:', loadingModal.style.display);
+        console.log('Modal computed display:', window.getComputedStyle(loadingModal).display);
     } else {
         console.error('Loading modal not found');
+        // Fallback alert if modal is not found
+        alert(`Loading ${name}...`);
     }
     
     // Simulate loading time and then navigate
@@ -709,6 +815,9 @@ window.showNewModal = showNewModal;
 window.hideNewModal = hideNewModal;
 window.hideLoadingModal = hideLoadingModal;
 window.saveLens = saveLens;
+window.handleNewLensOperation = handleNewLensOperation;
+window.handleCloneOperation = handleCloneOperation;
+window.openCloneModalForLens = openCloneModalForLens;
 window.toggleSelectAll = toggleSelectAll;
 window.toggleSelect = toggleSelect;
 window.cloneLenses = cloneLenses;
