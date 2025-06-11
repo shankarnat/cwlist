@@ -159,6 +159,7 @@ function renderTable() {
     
     updateCloneButton();
     updateSelectAllCheckbox();
+    updatePendingBadge();
 }
 
 // Toggle select all checkboxes
@@ -292,24 +293,26 @@ async function saveLens() {
     }
     
     const description = document.getElementById('lensDesc').value;
-    const status = document.getElementById('lensStatus').value;
+    const userSelectedStatus = document.getElementById('lensStatus').value;
     
-    // Create new lens with sequential ID
+    // Create new lens with sequential ID - always start with Draft
     const newLens = {
         id: generateNextId(),
         name: name,
-        status: status,
+        status: 'Draft', // Always start with Draft when saved
+        originalStatus: userSelectedStatus, // Store the user's intended status
         desc: description,
         lastRefreshed: new Date().toLocaleString()
     };
     
-    // Add to pending lenses (not visible until refresh)
-    pendingLenses.push(newLens);
-    updatePendingBadge();
+    // Add directly to main lenses array (immediately visible)
+    lenses.push(newLens);
+    renderTable();
+    updateRecordCount();
     hideNewModal();
     
     // Show success message
-    showSuccessMessage(`"${name}" created successfully. Click Refresh to see it in the list.`);
+    showSuccessMessage(`"${name}" created with Draft status. Click Refresh to publish it.`);
 }
 
 // Show clone modal for selected lenses
@@ -375,22 +378,23 @@ function cloneLensesDirectly() {
             const clonedLens = {
                 id: generateNextId(),
                 name: `${originalLens.name} (Copy)`,
-                status: originalLens.status,
+                status: 'Draft', // Always start with Draft
+                originalStatus: originalLens.status, // Store original status for refresh
                 desc: originalLens.desc,
                 lastRefreshed: new Date().toLocaleString()
             };
-            pendingLenses.push(clonedLens);
+            lenses.push(clonedLens); // Add directly to main list
         }
     });
     
     // Clear selection and update UI
     selectedIds = {};
-    updatePendingBadge();
     renderTable();
+    updateRecordCount();
     
     // Show success message
     const count = lensIds.length;
-    showSuccessMessage(`${count} lens${count > 1 ? 'es' : ''} cloned successfully. Click Refresh to see them in the list.`);
+    showSuccessMessage(`${count} lens${count > 1 ? 'es' : ''} cloned with Draft status. Click Refresh to publish.`);
 }
 
 // Legacy function name for compatibility
@@ -398,26 +402,62 @@ function cloneLenses() {
     showCloneModal();
 }
 
-// Refresh lenses - add all pending items to the main list
+// Refresh lenses - add pending items and publish draft lenses
 function refreshLenses() {
+    let publishedCount = 0;
+    let addedCount = 0;
+    
+    // Add pending lenses to main list
     if (pendingLenses.length > 0) {
-        const count = pendingLenses.length;
+        addedCount = pendingLenses.length;
         lenses = lenses.concat(pendingLenses);
         pendingLenses = [];
         updatePendingBadge();
-        renderTable();
-        updateRecordCount();
-        
-        // Show success message
-        showSuccessMessage(`${count} new item${count > 1 ? 's' : ''} added to the list.`);
+    }
+    
+    // Update Draft lenses to Published (if they have originalStatus of Published)
+    lenses.forEach(lens => {
+        if (lens.status === 'Draft' && lens.originalStatus === 'Published') {
+            lens.status = 'Published';
+            lens.lastRefreshed = new Date().toLocaleString();
+            publishedCount++;
+        } else if (lens.status === 'Draft' && !lens.originalStatus) {
+            // For lenses without originalStatus, also publish them on refresh
+            lens.status = 'Published';
+            lens.lastRefreshed = new Date().toLocaleString();
+            publishedCount++;
+        }
+    });
+    
+    renderTable();
+    updateRecordCount();
+    
+    // Show success message
+    let message = '';
+    if (addedCount > 0 && publishedCount > 0) {
+        message = `${addedCount} new item${addedCount > 1 ? 's' : ''} added and ${publishedCount} item${publishedCount > 1 ? 's' : ''} published.`;
+    } else if (addedCount > 0) {
+        message = `${addedCount} new item${addedCount > 1 ? 's' : ''} added to the list.`;
+    } else if (publishedCount > 0) {
+        message = `${publishedCount} item${publishedCount > 1 ? 's' : ''} published.`;
+    } else {
+        message = 'All items are up to date.';
+    }
+    
+    if (addedCount > 0 || publishedCount > 0) {
+        showSuccessMessage(message);
     }
 }
 
 // Update pending badge
 function updatePendingBadge() {
     const badge = document.getElementById('pendingBadge');
-    if (pendingLenses.length > 0) {
-        badge.textContent = pendingLenses.length;
+    const draftCount = lenses.filter(lens => lens.status === 'Draft').length;
+    const pendingCount = pendingLenses.length;
+    const totalPending = draftCount + pendingCount;
+    
+    if (totalPending > 0) {
+        badge.textContent = totalPending;
         badge.style.display = 'inline-block';
     } else {
         badge.style.display = 'none';
