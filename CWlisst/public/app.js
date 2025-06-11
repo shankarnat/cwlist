@@ -18,6 +18,15 @@ async function init() {
     }
 }
 
+// Update record count
+function updateRecordCount() {
+    const totalCount = lenses.length;
+    const recordCountElement = document.querySelector('.record-count');
+    if (recordCountElement) {
+        recordCountElement.textContent = `${totalCount} items • Updated a few seconds ago`;
+    }
+}
+
 // Load lenses from API
 async function loadLenses() {
     try {
@@ -61,22 +70,31 @@ function renderTable() {
     
     noData.style.display = 'none';
     
-    filtered.forEach((lens, index) => {
+    filtered.forEach((lens) => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td>
-                <div class="slds-checkbox">
-                    <input type="checkbox" id="chk${lens.id}" onchange="toggleSelect('${lens.id}')" />
-                    <label class="slds-checkbox__label" for="chk${lens.id}">
-                        <span class="slds-checkbox_faux"></span>
-                    </label>
+            <td class="table-cell-checkbox">
+                <div class="checkbox-wrapper">
+                    <input type="checkbox" class="checkbox" id="chk${lens.id}" onchange="toggleSelect('${lens.id}')" />
+                    <label for="chk${lens.id}" class="checkbox-label"></label>
                 </div>
             </td>
-            <td>${index + 1}</td>
+            <td class="table-cell-actions">
+                <div class="action-menu">
+                    <button class="action-button" title="More actions">
+                        <svg viewBox="0 0 20 20">
+                            <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                        </svg>
+                    </button>
+                </div>
+            </td>
+            <td><a href="javascript:void(0)" class="lens-link" onclick="openLens('${lens.name}')">${lens.name}</a></td>
             <td>${lens.id}</td>
-            <td><a href="javascript:void(0)" onclick="openLens('${lens.name}')">${lens.name}</a></td>
-            <td><span class="slds-badge ${lens.status === 'Published' ? 'slds-theme_success' : 'slds-theme_warning'}">${lens.status}</span></td>
+            <td>
+                <span class="status-badge ${lens.status === 'Published' ? 'status-published' : 'status-draft'}">${lens.status}</span>
+            </td>
             <td>${lens.lastRefreshed}</td>
+            <td class="table-cell-actions"></td>
         `;
         tbody.appendChild(tr);
     });
@@ -113,29 +131,37 @@ function toggleSelect(id) {
 // Update clone button state
 function updateCloneButton() {
     const count = Object.keys(selectedIds).length;
-    document.getElementById('cloneBtn').disabled = count === 0;
+    const floatingActions = document.getElementById('floatingActions');
+    
+    if (count > 0) {
+        floatingActions.style.display = 'flex';
+        floatingActions.querySelector('.selected-count').textContent = `${count} selected`;
+    } else {
+        floatingActions.style.display = 'none';
+    }
+    
+    // Update record count
+    updateRecordCount();
 }
 
 // Show new lens modal
 function showNewModal() {
-    document.getElementById('newModal').classList.add('slds-fade-in-open');
-    document.getElementById('newBackdrop').classList.add('slds-backdrop_open');
+    document.getElementById('newModal').style.display = 'block';
 }
 
 // Hide new lens modal
 function hideNewModal() {
-    document.getElementById('newModal').classList.remove('slds-fade-in-open');
-    document.getElementById('newBackdrop').classList.remove('slds-backdrop_open');
+    document.getElementById('newModal').style.display = 'none';
     document.getElementById('lensName').value = '';
     document.getElementById('lensDesc').value = '';
-    document.getElementById('nameError').classList.add('slds-hide');
+    document.getElementById('nameError').style.display = 'none';
 }
 
 // Save new lens
 async function saveLens() {
     const name = document.getElementById('lensName').value.trim();
     if (!name) {
-        document.getElementById('nameError').classList.remove('slds-hide');
+        document.getElementById('nameError').style.display = 'block';
         return;
     }
     
@@ -228,12 +254,10 @@ function updatePendingBadge() {
 
 // Open lens
 function openLens(name) {
-    document.getElementById('loadingModal').classList.add('slds-fade-in-open');
-    document.getElementById('loadingBackdrop').classList.add('slds-backdrop_open');
+    document.getElementById('loadingModal').style.display = 'block';
     
     setTimeout(() => {
-        document.getElementById('loadingModal').classList.remove('slds-fade-in-open');
-        document.getElementById('loadingBackdrop').classList.remove('slds-backdrop_open');
+        document.getElementById('loadingModal').style.display = 'none';
         
         // Send message to parent if in iframe
         if (window.parent !== window) {
