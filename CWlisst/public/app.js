@@ -4,12 +4,39 @@ let pendingLenses = [];
 let selectedIds = {};
 let nextId = 4;
 
+// Sample data with proper timestamps
+const initialData = [
+    {
+        id: 'L-00001',
+        name: 'Marketing Lens',
+        status: 'Published',
+        desc: 'Marketing content analysis',
+        lastRefreshed: new Date(Date.now() - 3600000).toLocaleString() // 1 hour ago
+    },
+    {
+        id: 'L-00002',
+        name: 'HR Lens',
+        status: 'Draft',
+        desc: 'HR documentation review',
+        lastRefreshed: new Date(Date.now() - 172800000).toLocaleString() // 2 days ago
+    },
+    {
+        id: 'L-00003',
+        name: 'Finance Lens',
+        status: 'Published',
+        desc: 'Financial data insights',
+        lastRefreshed: new Date().toLocaleString() // Now
+    }
+];
+
 // API base URL - will work both locally and on Heroku
 const API_BASE = window.location.origin + '/api';
 
 // Initialize the application
 async function init() {
-    await loadLenses();
+    // Load initial data immediately for demo purposes
+    loadInitialData();
+    
     document.getElementById('searchInput').addEventListener('input', renderTable);
     
     // Check if we're in an iframe and send ready message
@@ -45,9 +72,15 @@ async function loadLenses() {
         renderTable();
     } catch (error) {
         console.error('Error loading lenses:', error);
-        // Show error message to user
-        showError('Failed to load lenses. Please try again.');
+        // Use initial sample data as fallback
+        loadInitialData();
     }
+}
+
+function loadInitialData() {
+    lenses = [...initialData];
+    renderTable();
+    updateRecordCount();
 }
 
 // Render the table
@@ -70,12 +103,17 @@ function renderTable() {
     
     noData.style.display = 'none';
     
-    filtered.forEach((lens) => {
+    filtered.forEach((lens, index) => {
+        const isSelected = selectedIds[lens.id];
         const tr = document.createElement('tr');
+        if (isSelected) {
+            tr.classList.add('selected-row');
+        }
+        
         tr.innerHTML = `
             <td class="table-cell-checkbox">
                 <div class="checkbox-wrapper">
-                    <input type="checkbox" class="checkbox" id="chk${lens.id}" onchange="toggleSelect('${lens.id}')" />
+                    <input type="checkbox" class="checkbox" id="chk${lens.id}" ${isSelected ? 'checked' : ''} onchange="toggleSelect('${lens.id}')" />
                     <label for="chk${lens.id}" class="checkbox-label"></label>
                 </div>
             </td>
@@ -100,32 +138,64 @@ function renderTable() {
     });
     
     updateCloneButton();
+    updateSelectAllCheckbox();
 }
 
 // Toggle select all checkboxes
 function toggleSelectAll() {
     const selectAll = document.getElementById('selectAll').checked;
-    const checkboxes = document.querySelectorAll('#tableBody input[type="checkbox"]');
     selectedIds = {};
     
-    checkboxes.forEach(cb => {
-        cb.checked = selectAll;
-        const id = cb.id.replace('chk', '');
-        if (selectAll) selectedIds[id] = true;
-    });
+    if (selectAll) {
+        // Select all visible lenses
+        const search = document.getElementById('searchInput').value.toLowerCase();
+        const filtered = lenses.filter(lens => 
+            lens.id.toLowerCase().includes(search) || 
+            lens.name.toLowerCase().includes(search) || 
+            lens.status.toLowerCase().includes(search)
+        );
+        
+        filtered.forEach(lens => {
+            selectedIds[lens.id] = true;
+        });
+    }
     
-    updateCloneButton();
+    renderTable(); // Re-render to update checkbox states
 }
 
 // Toggle individual selection
 function toggleSelect(id) {
-    const cb = document.getElementById('chk' + id);
-    if (cb.checked) {
-        selectedIds[id] = true;
-    } else {
+    if (selectedIds[id]) {
         delete selectedIds[id];
+    } else {
+        selectedIds[id] = true;
     }
     updateCloneButton();
+    updateSelectAllCheckbox();
+}
+
+// Update select all checkbox state
+function updateSelectAllCheckbox() {
+    const selectAllCheckbox = document.getElementById('selectAll');
+    const search = document.getElementById('searchInput').value.toLowerCase();
+    const filtered = lenses.filter(lens => 
+        lens.id.toLowerCase().includes(search) || 
+        lens.name.toLowerCase().includes(search) || 
+        lens.status.toLowerCase().includes(search)
+    );
+    
+    const selectedCount = filtered.filter(lens => selectedIds[lens.id]).length;
+    
+    if (selectedCount === 0) {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = false;
+    } else if (selectedCount === filtered.length) {
+        selectAllCheckbox.checked = true;
+        selectAllCheckbox.indeterminate = false;
+    } else {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = true;
+    }
 }
 
 // Update clone button state
@@ -139,9 +209,6 @@ function updateCloneButton() {
     } else {
         floatingActions.style.display = 'none';
     }
-    
-    // Update record count
-    updateRecordCount();
 }
 
 // Show new lens modal
@@ -157,6 +224,13 @@ function hideNewModal() {
     document.getElementById('nameError').style.display = 'none';
 }
 
+// Generate next sequential ID
+function generateNextId() {
+    const id = `L-${String(nextId).padStart(5, '0')}`;
+    nextId++;
+    return id;
+}
+
 // Save new lens
 async function saveLens() {
     const name = document.getElementById('lensName').value.trim();
@@ -168,76 +242,69 @@ async function saveLens() {
     const description = document.getElementById('lensDesc').value;
     const status = document.getElementById('lensStatus').value;
     
-    try {
-        const response = await fetch(`${API_BASE}/lenses`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ name, description, status })
-        });
-        
-        if (!response.ok) throw new Error('Failed to save lens');
-        
-        const newLens = await response.json();
-        pendingLenses.push({
-            id: newLens.id,
-            name: newLens.name,
-            status: newLens.status,
-            desc: newLens.description,
-            lastRefreshed: new Date(newLens.lastRefreshed).toLocaleString()
-        });
-        
-        updatePendingBadge();
-        hideNewModal();
-    } catch (error) {
-        console.error('Error saving lens:', error);
-        showError('Failed to save lens. Please try again.');
-    }
+    // Create new lens with sequential ID
+    const newLens = {
+        id: generateNextId(),
+        name: name,
+        status: status,
+        desc: description,
+        lastRefreshed: new Date().toLocaleString()
+    };
+    
+    // Add to pending lenses (not visible until refresh)
+    pendingLenses.push(newLens);
+    updatePendingBadge();
+    hideNewModal();
+    
+    // Show success message
+    showSuccessMessage(`"${name}" created successfully. Click Refresh to see it in the list.`);
 }
 
 // Clone selected lenses
-async function cloneLenses() {
+function cloneLenses() {
     const lensIds = Object.keys(selectedIds);
     
-    try {
-        const response = await fetch(`${API_BASE}/lenses/clone`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ lensIds })
-        });
-        
-        if (!response.ok) throw new Error('Failed to clone lenses');
-        
-        const clonedLenses = await response.json();
-        clonedLenses.forEach(lens => {
-            pendingLenses.push({
-                id: lens.id,
-                name: lens.name,
-                status: lens.status,
-                desc: lens.description,
-                lastRefreshed: new Date(lens.lastRefreshed).toLocaleString()
-            });
-        });
-        
-        selectedIds = {};
-        updatePendingBadge();
-        renderTable();
-    } catch (error) {
-        console.error('Error cloning lenses:', error);
-        showError('Failed to clone lenses. Please try again.');
+    if (lensIds.length === 0) {
+        return;
     }
+    
+    // Create clones of selected lenses
+    lensIds.forEach(id => {
+        const originalLens = lenses.find(lens => lens.id === id);
+        if (originalLens) {
+            const clonedLens = {
+                id: generateNextId(),
+                name: `${originalLens.name} (Copy)`,
+                status: originalLens.status,
+                desc: originalLens.desc,
+                lastRefreshed: new Date().toLocaleString()
+            };
+            pendingLenses.push(clonedLens);
+        }
+    });
+    
+    // Clear selection and update UI
+    selectedIds = {};
+    updatePendingBadge();
+    renderTable();
+    
+    // Show success message
+    const count = lensIds.length;
+    showSuccessMessage(`${count} lens${count > 1 ? 'es' : ''} cloned successfully. Click Refresh to see them in the list.`);
 }
 
-// Refresh lenses
+// Refresh lenses - add all pending items to the main list
 function refreshLenses() {
     if (pendingLenses.length > 0) {
+        const count = pendingLenses.length;
         lenses = lenses.concat(pendingLenses);
         pendingLenses = [];
         updatePendingBadge();
         renderTable();
+        updateRecordCount();
+        
+        // Show success message
+        showSuccessMessage(`${count} new item${count > 1 ? 's' : ''} added to the list.`);
     }
 }
 
@@ -272,10 +339,68 @@ function openLens(name) {
     }, 2000);
 }
 
+// Show success message
+function showSuccessMessage(message) {
+    // Create a temporary success toast
+    const toast = document.createElement('div');
+    toast.className = 'success-toast';
+    toast.textContent = message;
+    toast.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #4bca81;
+        color: white;
+        padding: 12px 20px;
+        border-radius: 4px;
+        font-size: 14px;
+        z-index: 10000;
+        opacity: 0;
+        transition: opacity 0.3s;
+    `;
+    
+    document.body.appendChild(toast);
+    
+    // Show toast
+    setTimeout(() => toast.style.opacity = '1', 100);
+    
+    // Hide and remove toast
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => document.body.removeChild(toast), 300);
+    }, 3000);
+}
+
 // Show error message
 function showError(message) {
-    // You can implement a toast notification here
-    alert(message);
+    // Create a temporary error toast
+    const toast = document.createElement('div');
+    toast.className = 'error-toast';
+    toast.textContent = message;
+    toast.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #ff5d64;
+        color: white;
+        padding: 12px 20px;
+        border-radius: 4px;
+        font-size: 14px;
+        z-index: 10000;
+        opacity: 0;
+        transition: opacity 0.3s;
+    `;
+    
+    document.body.appendChild(toast);
+    
+    // Show toast
+    setTimeout(() => toast.style.opacity = '1', 100);
+    
+    // Hide and remove toast
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => document.body.removeChild(toast), 300);
+    }, 3000);
 }
 
 // Listen for messages from parent window

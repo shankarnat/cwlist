@@ -325,6 +325,14 @@ body {
     background-color: var(--color-gray-1);
 }
 
+.data-table tbody tr.selected-row {
+    background-color: #e8f4fd;
+}
+
+.data-table tbody tr.selected-row:hover {
+    background-color: #d0e8fa;
+}
+
 .data-table tbody tr:last-child td {
     border-bottom: none;
 }
