@@ -49,6 +49,16 @@ async function init() {
         });
     }
     
+    // Add ESC key listener for modal
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            const modal = document.getElementById('newModal');
+            if (modal && modal.style.display === 'block') {
+                hideNewModal();
+            }
+        }
+    });
+    
     // Check if we're in an iframe and send ready message
     if (window.parent !== window) {
         window.parent.postMessage({ type: 'contentLensReady' }, '*');
@@ -235,6 +245,10 @@ function showNewModal() {
         modal.style.visibility = 'visible';
         modal.style.opacity = '1';
         
+        // Set default modal title and button text for new lens
+        document.querySelector('.modal-header__title').textContent = 'New Content Lens';
+        document.getElementById('saveButton').textContent = 'Save';
+        
         // Focus on the first input field
         setTimeout(() => {
             const nameInput = document.getElementById('lensName');
@@ -249,10 +263,17 @@ function showNewModal() {
 
 // Hide new lens modal
 function hideNewModal() {
-    document.getElementById('newModal').style.display = 'none';
+    const modal = document.getElementById('newModal');
+    modal.style.display = 'none';
+    
+    // Clear form fields
     document.getElementById('lensName').value = '';
     document.getElementById('lensDesc').value = '';
+    document.getElementById('lensStatus').value = 'Draft';
     document.getElementById('nameError').style.display = 'none';
+    
+    // Update modal title back to default
+    document.querySelector('.modal-header__title').textContent = 'New Content Lens';
 }
 
 // Generate next sequential ID
@@ -291,8 +312,56 @@ async function saveLens() {
     showSuccessMessage(`"${name}" created successfully. Click Refresh to see it in the list.`);
 }
 
-// Clone selected lenses
-function cloneLenses() {
+// Show clone modal for selected lenses
+function showCloneModal() {
+    const lensIds = Object.keys(selectedIds);
+    
+    if (lensIds.length === 0) {
+        showError('Please select at least one lens to clone.');
+        return;
+    }
+    
+    if (lensIds.length === 1) {
+        // Single lens - open modal with prefilled data
+        const lensId = lensIds[0];
+        const originalLens = lenses.find(lens => lens.id === lensId);
+        
+        if (originalLens) {
+            // Clear form first
+            document.getElementById('lensName').value = '';
+            document.getElementById('lensDesc').value = '';
+            document.getElementById('lensStatus').value = 'Draft';
+            document.getElementById('nameError').style.display = 'none';
+            
+            // Update modal title and button text
+            document.querySelector('.modal-header__title').textContent = 'Clone Content Lens';
+            document.getElementById('saveButton').textContent = 'Clone';
+            
+            // Show modal first
+            const modal = document.getElementById('newModal');
+            modal.style.display = 'block';
+            modal.style.visibility = 'visible';
+            modal.style.opacity = '1';
+            
+            // Then prefill form with original data
+            setTimeout(() => {
+                document.getElementById('lensName').value = `${originalLens.name} (Copy)`;
+                document.getElementById('lensDesc').value = originalLens.desc;
+                document.getElementById('lensStatus').value = originalLens.status;
+                
+                // Focus on name field for editing
+                document.getElementById('lensName').focus();
+                document.getElementById('lensName').select();
+            }, 100);
+        }
+    } else {
+        // Multiple lenses - clone directly without modal
+        cloneLensesDirectly();
+    }
+}
+
+// Clone selected lenses directly (for multiple selections)
+function cloneLensesDirectly() {
     const lensIds = Object.keys(selectedIds);
     
     if (lensIds.length === 0) {
@@ -322,6 +391,11 @@ function cloneLenses() {
     // Show success message
     const count = lensIds.length;
     showSuccessMessage(`${count} lens${count > 1 ? 'es' : ''} cloned successfully. Click Refresh to see them in the list.`);
+}
+
+// Legacy function name for compatibility
+function cloneLenses() {
+    showCloneModal();
 }
 
 // Refresh lenses - add all pending items to the main list
@@ -449,6 +523,8 @@ window.saveLens = saveLens;
 window.toggleSelectAll = toggleSelectAll;
 window.toggleSelect = toggleSelect;
 window.cloneLenses = cloneLenses;
+window.showCloneModal = showCloneModal;
+window.cloneLensesDirectly = cloneLensesDirectly;
 window.refreshLenses = refreshLenses;
 window.openLens = openLens;
 
