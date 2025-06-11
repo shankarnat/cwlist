@@ -59,12 +59,26 @@ async function init() {
         });
     }
     
-    // Add ESC key listener for modal
+    // Add event listener to header Clone button as backup
+    const headerCloneBtn = document.getElementById('headerCloneBtn');
+    if (headerCloneBtn) {
+        headerCloneBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            console.log('Header clone button clicked via event listener');
+            showCloneModal();
+        });
+    }
+    
+    // Add ESC key listener for modals
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
-            const modal = document.getElementById('newModal');
-            if (modal && modal.style.display === 'block') {
+            const newModal = document.getElementById('newModal');
+            const loadingModal = document.getElementById('loadingModal');
+            
+            if (newModal && newModal.style.display === 'block') {
                 hideNewModal();
+            } else if (loadingModal && loadingModal.style.display === 'block') {
+                hideLoadingModal();
             }
         }
     });
@@ -241,9 +255,11 @@ function updateSelectAllCheckbox() {
 function updateCloneButton() {
     const count = Object.keys(selectedIds).length;
     const floatingActions = document.getElementById('floatingActions');
+    const headerCloneBtn = document.getElementById('headerCloneBtn');
     
     console.log('updateCloneButton called, count:', count, 'selectedIds:', selectedIds);
     
+    // Update floating actions (bottom clone button)
     if (floatingActions) {
         if (count > 0) {
             floatingActions.style.display = 'flex';
@@ -258,6 +274,14 @@ function updateCloneButton() {
         }
     } else {
         console.error('floatingActions element not found');
+    }
+    
+    // Update header clone button
+    if (headerCloneBtn) {
+        headerCloneBtn.disabled = count === 0;
+        console.log('Header clone button disabled:', count === 0);
+    } else {
+        console.error('headerCloneBtn element not found');
     }
 }
 
@@ -546,22 +570,66 @@ function updatePendingBadge() {
 
 // Open lens
 function openLens(name) {
-    document.getElementById('loadingModal').style.display = 'block';
+    console.log('Opening lens:', name);
     
+    const loadingModal = document.getElementById('loadingModal');
+    if (loadingModal) {
+        loadingModal.style.display = 'block';
+        
+        // Update the loading text to include the lens name
+        const spinnerText = loadingModal.querySelector('.spinner-text');
+        if (spinnerText) {
+            spinnerText.textContent = `Opening "${name}"...`;
+        }
+        
+        console.log('Loading modal displayed');
+    } else {
+        console.error('Loading modal not found');
+    }
+    
+    // Simulate loading time and then navigate
     setTimeout(() => {
-        document.getElementById('loadingModal').style.display = 'none';
+        console.log('Loading complete, navigating...');
+        
+        if (loadingModal) {
+            loadingModal.style.display = 'none';
+            
+            // Reset the loading text back to default
+            const spinnerText = loadingModal.querySelector('.spinner-text');
+            if (spinnerText) {
+                spinnerText.textContent = 'Opening Content Lens...';
+            }
+        }
         
         // Send message to parent if in iframe
         if (window.parent !== window) {
+            console.log('Sending message to parent iframe');
             window.parent.postMessage({
                 type: 'openLens',
                 lensName: name
             }, '*');
         } else {
             // Navigate directly if not in iframe
+            console.log('Direct navigation (not in iframe)');
             window.location.href = `/lens/${encodeURIComponent(name)}`;
         }
     }, 2000);
+}
+
+// Hide loading modal
+function hideLoadingModal() {
+    const loadingModal = document.getElementById('loadingModal');
+    if (loadingModal) {
+        loadingModal.style.display = 'none';
+        
+        // Reset the loading text back to default
+        const spinnerText = loadingModal.querySelector('.spinner-text');
+        if (spinnerText) {
+            spinnerText.textContent = 'Opening Content Lens...';
+        }
+        
+        console.log('Loading modal manually closed');
+    }
 }
 
 // Show success message
@@ -639,6 +707,7 @@ window.addEventListener('message', (event) => {
 // Make functions globally available for onclick handlers
 window.showNewModal = showNewModal;
 window.hideNewModal = hideNewModal;
+window.hideLoadingModal = hideLoadingModal;
 window.saveLens = saveLens;
 window.toggleSelectAll = toggleSelectAll;
 window.toggleSelect = toggleSelect;

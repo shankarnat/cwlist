@@ -149,6 +149,11 @@ body {
     box-shadow: 0 0 3px var(--color-brand);
 }
 
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 .btn-brand {
     background-color: var(--color-brand);
     color: var(--color-white);
